@@ -78,7 +78,7 @@ func (p *PromWriter) WriteCollectd(c datatypes.CollectdHTTP) {
 		prom.Labels["instance"] = c.PluginInstance
 	}
 	if len(c.TypeInstance) > 0 {
-		prom.Labels["type"] = c.TypeInstance
+		prom.Labels["type_instance"] = c.TypeInstance
 	}
 	maxWriteDelay := time.After(time.Second * 10)
 	if len(c.Values) == 1 {
@@ -95,8 +95,7 @@ func (p *PromWriter) WriteCollectd(c datatypes.CollectdHTTP) {
 			for k, v := range prom.Labels {
 				promEv.Labels[k] = v
 			}
-			promEv.Labels["type"] = c.Type + "-" + c.Dstypes[idx]
-			promEv.Labels["dsname"] = c.Dsnames[idx]
+			promEv.Labels["type"] = c.Dsnames[idx]
 			promEv.Value = v
 			select {
 			case p.writeChannel <- promEv:
