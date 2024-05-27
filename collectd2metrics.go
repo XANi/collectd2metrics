@@ -22,6 +22,7 @@ var log *zap.SugaredLogger
 var debug = true
 
 // /* embeds with all files, just dir/ ignores files starting with _ or .
+//
 //go:embed static templates
 var embeddedWebContent embed.FS
 
