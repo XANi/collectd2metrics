@@ -138,12 +138,12 @@ func (p *PromWriter) writer() {
 	for {
 		events := []datatypes.PrometheusWrite{}
 		deadline := time.After(p.cfg.MaxBatchDuration)
-		var ev datatypes.PrometheusWrite
+		var prWr datatypes.PrometheusWrite
 	tmout:
 		for len(events) < p.cfg.MaxBatchLength {
 			select {
-			case ev = <-p.writeChannel:
-				events = append(events, ev)
+			case prWr = <-p.writeChannel:
+				events = append(events, prWr)
 			case <-deadline:
 				break tmout
 			}
