@@ -23,9 +23,9 @@ jobs:
         with:
           go-version: "1.20"
       - uses: actions/checkout@v3
-      - run: make arch
-      - name: dpp
-        uses: actions/upload-artifact@v4
+      - run: make release
+      - name: collectd2metrics
+        uses: actions/upload-artifact@v4.6.1
         with:
           # Artifact name
           name: collectd2metrics
