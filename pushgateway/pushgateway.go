@@ -1,16 +1,12 @@
-package promwriter
+package pushgateway
 
 import (
 	"bytes"
 	"fmt"
 	"github.com/XANi/collectd2metrics/datatypes"
-	"github.com/golang/protobuf/proto"
-	"github.com/klauspost/compress/snappy"
-	"github.com/prometheus/prometheus/prompb"
 	"go.uber.org/zap"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 )
@@ -28,7 +24,6 @@ type PromWriter struct {
 	cfg          Config
 	l            *zap.SugaredLogger
 	writeChannel chan datatypes.PrometheusWrite
-	http         *http.Client
 }
 
 func New(cfg Config) (*PromWriter, error) {
@@ -42,14 +37,8 @@ func New(cfg Config) (*PromWriter, error) {
 		cfg.MaxBatchLength = 1000
 	}
 	w := PromWriter{
-		cfg: cfg,
-		l:   cfg.Logger,
-		http: &http.Client{
-			Transport:     nil,
-			CheckRedirect: nil,
-			Jar:           nil,
-			Timeout:       cfg.Timeout,
-		},
+		cfg:          cfg,
+		l:            cfg.Logger,
 		writeChannel: make(chan datatypes.PrometheusWrite, cfg.MaxBatchLength*2),
 	}
 	url, err := url.Parse(cfg.URL)
@@ -116,12 +105,6 @@ func (p *PromWriter) WriteCollectd(c datatypes.CollectdHTTP) {
 				promEv.Labels[k] = v
 			}
 			promEv.Labels["type"] = c.Dsnames[idx]
-			switch c.Dstypes[idx] {
-			case "derive", "counter":
-				promEv.Type = datatypes.MetricTypeCounter
-			case "gauge":
-				promEv.Type = datatypes.MetricTypeGauge
-			}
 			promEv.Value = v
 			select {
 			case p.writeChannel <- promEv:
@@ -134,7 +117,9 @@ func (p *PromWriter) WriteCollectd(c datatypes.CollectdHTTP) {
 }
 
 func (p *PromWriter) writer() {
-
+	cl := http.Client{
+		Timeout: p.cfg.Timeout,
+	}
 	for {
 		events := []datatypes.PrometheusWrite{}
 		deadline := time.After(p.cfg.MaxBatchDuration)
@@ -146,52 +131,15 @@ func (p *PromWriter) writer() {
 				events = append(events, ev)
 			case <-deadline:
 				break tmout
+
 			}
 		}
 		if len(events) > 0 {
-			wr := &prompb.WriteRequest{
-				Timeseries: make([]prompb.TimeSeries, 0),
-			}
-
+			buf := bytes.Buffer{}
 			for _, e := range events {
-				dp := prompb.TimeSeries{
-					Labels: []prompb.Label{{
-						Name:  "__name__",
-						Value: e.Name,
-					}},
-				}
-				for k, v := range e.Labels {
-					dp.Labels = append(dp.Labels, prompb.Label{
-						Name:  k,
-						Value: v,
-					})
-				}
-				// protocol requires them to be sorted, just in case some server is stupid enough to enforce this silliness
-				sort.Slice(dp.Labels, func(i, j int) bool {
-					return dp.Labels[i].Name < dp.Labels[j].Name
-				})
-				dp.Samples = []prompb.Sample{{
-					Timestamp: e.TS.UnixMilli(),
-					Value:     e.Value,
-				}}
-
-				wr.Timeseries = append(wr.Timeseries, dp)
-				//	wr.Metadata = append(wr.Metadata, prompb.MetricMetadata{
-				//		Type:             0,
-				//		MetricFamilyName: "",
-				//		Help:             "",
-				//		Unit:             "",
-				//	})
+				e.Write(&buf)
 			}
-			b, err := proto.Marshal(wr)
-			buf := snappy.Encode(nil, b)
-			req, err := http.NewRequest("POST", p.cfg.URL, bytes.NewBuffer(buf))
-
-			req.Header.Set("Content-Encoding", "snappy")
-			req.Header.Set("Content-Type", "application/x-protobuf")
-			req.Header.Set("X-Prometheus-Remote-Write-Version", "0.1.0")
-
-			resp, err := p.http.Do(req)
+			resp, err := cl.Post(p.cfg.URL, "text/plain", &buf)
 			if err != nil {
 				p.l.Errorf("error sending request to %s: %s", p.cfg.URL, err)
 				// TODO retry

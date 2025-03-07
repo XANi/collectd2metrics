@@ -114,6 +114,7 @@ func main() {
 				log.Infof(`detected directories "static" and "templates", using local static files instead of ones embedded in binary`)
 			}
 		}
+		cfg.PushgatewayWriter.Logger = log.Named("wr_prom")
 		cfg.PrometheusWriter.Logger = log.Named("wr_prom")
 		promWr, err := promwriter.New(cfg.PrometheusWriter)
 		if err != nil {

@@ -9,10 +9,24 @@ import (
 	"time"
 )
 
+type MetricType string
+
+const (
+	MetricTypeCounter        = MetricType("counter")
+	MetricTypeGauge          = MetricType("gauge")
+	MetricTypeHistogram      = MetricType("histogram")
+	MetricTypeGaugeHistogram = MetricType("gaugehistogram")
+	MetricTypeSummary        = MetricType("summary")
+	MetricTypeInfo           = MetricType("info")
+	MetricTypeStateset       = MetricType("stateset")
+	MetricTypeUnknown        = MetricType("unknown")
+)
+
 type PrometheusWrite struct {
 	Name   string
 	Labels map[string]string
 	Value  float64
+	Type   MetricType
 	TS     time.Time
 }
 
