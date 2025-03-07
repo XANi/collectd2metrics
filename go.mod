@@ -1,6 +1,6 @@
 module github.com/XANi/collectd2metrics
 
-go 1.18
+go 1.20
 
 require (
 	github.com/efigence/go-mon v1.3.1
