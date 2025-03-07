@@ -3,17 +3,23 @@ version=$(shell git describe --tags --long --always --dirty|sed 's/^v//')
 binfile=collectd2metrics
 # CGO_EXTLDFLAGS is added for cross-compiling purpose
 all:
-	mkdir -p bin/
-	go build -ldflags "$(CGO_EXTLDFLAGS) -X main.version=$(version)" $(binfile).go
+	go build -ldflags "$(CGO_EXTLDFLAGS) -X main.version=$(version)" -o $(binfile) $(binfile).go
 	-@go fmt
 
 static:
-	mkdir -p bin/
-	CGO_ENABLED=0 go build -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o $(binfile).static $(binfile).go
+	CGO_ENABLED=0 go build -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).static $(binfile).go
 
 arm:
-	mkdir -p bin/
-	GOARCH=arm go build  -ldflags "$(CGO_EXTLDFLAGS) -X main.version=$(version) -extldflags \"-static\"" -o $(binfile).arm $(binfile).go
-	GOARCH=arm64 go build  -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o $(binfile).arm64 $(binfile).go
+	GOARCH=arm go build  -ldflags "$(CGO_EXTLDFLAGS) -X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).arm $(binfile).go
+	GOARCH=arm64 go build  -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).arm64 $(binfile).go
+
+release:
+	rm bin/*
+	CGO=0 GOARCH=arm go build  -ldflags "$(CGO_EXTLDFLAGS) -X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).arm $(binfile).go
+	CGO=0 GOARCH=arm64 go build  -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).arm64 $(binfile).go
+	CGO=0 GOARCH=386 go build  -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).i386 $(binfile).go
+	CGO=0 GOARCH=amd64 go build  -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).amd64 $(binfile).go
+	bash -c 'cd bin ; sha256sum * >Checksum'
+
 version:
 	@echo $(version)
