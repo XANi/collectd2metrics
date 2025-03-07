@@ -16,6 +16,7 @@ type Config struct {
 	Timeout          time.Duration      `yaml:"timeout"`
 	MaxBatchDuration time.Duration      `yaml:"max_batch_duration"`
 	MaxBatchLength   int                `yaml:"max_batch_length"`
+	HostLabelFile    string             `yaml:"host_label_file"`
 	Logger           *zap.SugaredLogger `yaml:"-"`
 }
 
@@ -46,6 +47,14 @@ func New(cfg Config) (*PromWriter, error) {
 	} else {
 		// cut down url so any basic auth pass won't show in logs
 		cfg.Logger.Infof("starting prometheus writer to %s%s", url.Host, url.Path)
+	}
+	if len(cfg.HostLabelFile) > 0 {
+		w.l.Infof("loading host label map file %s", cfg.HostLabelFile)
+		err := w.loadHostLabels(cfg.HostLabelFile)
+		if err != nil {
+			return nil, err
+		}
+		go w.updateHostLabels()
 	}
 	go w.writer()
 	return &w, nil
