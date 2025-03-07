@@ -14,7 +14,7 @@ arm:
 	GOARCH=arm64 go build  -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).arm64 $(binfile).go
 
 release:
-	rm bin/*
+	rm -f bin/*
 	CGO=0 GOARCH=arm go build  -ldflags "$(CGO_EXTLDFLAGS) -X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).arm $(binfile).go
 	CGO=0 GOARCH=arm64 go build  -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).arm64 $(binfile).go
 	CGO=0 GOARCH=386 go build  -ldflags "-X main.version=$(version) -extldflags \"-static\"" -o bin/$(binfile).i386 $(binfile).go
