@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/XANi/collectd2metrics/datatypes"
+	"github.com/efigence/go-mon"
 	"github.com/golang/protobuf/proto"
 	"github.com/klauspost/compress/snappy"
 	"github.com/prometheus/prometheus/prompb"
@@ -25,10 +26,13 @@ type Config struct {
 }
 
 type PromWriter struct {
-	cfg          Config
-	l            *zap.SugaredLogger
-	writeChannel chan datatypes.PrometheusWrite
-	http         *http.Client
+	cfg             Config
+	l               *zap.SugaredLogger
+	writeChannel    chan datatypes.PrometheusWrite
+	http            *http.Client
+	monEvCount      mon.Metric
+	monReqOkCount   mon.Metric
+	monReqFailCount mon.Metric
 }
 
 func New(cfg Config) (*PromWriter, error) {
@@ -42,8 +46,11 @@ func New(cfg Config) (*PromWriter, error) {
 		cfg.MaxBatchLength = 1000
 	}
 	w := PromWriter{
-		cfg: cfg,
-		l:   cfg.Logger,
+		cfg:             cfg,
+		l:               cfg.Logger,
+		monEvCount:      mon.GlobalRegistry.MustRegister("promwriter_events_total", mon.NewCounter()),
+		monReqOkCount:   mon.GlobalRegistry.MustRegister("promwriter_requests_total", mon.NewCounter(), map[string]string{"state": "ok"}),
+		monReqFailCount: mon.GlobalRegistry.MustRegister("promwriter_requests_total", mon.NewCounter(), map[string]string{"state": "fail"}),
 		http: &http.Client{
 			Transport:     nil,
 			CheckRedirect: nil,
@@ -183,6 +190,7 @@ func (p *PromWriter) writer() {
 				//		Unit:             "",
 				//	})
 			}
+			p.monEvCount.Update(float64(len(events)))
 			b, err := proto.Marshal(wr)
 			buf := snappy.Encode(nil, b)
 			req, err := http.NewRequest("POST", p.cfg.URL, bytes.NewBuffer(buf))
@@ -195,12 +203,16 @@ func (p *PromWriter) writer() {
 			if err != nil {
 				p.l.Errorf("error sending request to %s: %s", p.cfg.URL, err)
 				// TODO retry
+				p.monReqFailCount.Update(1)
 				continue
 			} else {
 				resp.Body.Close()
 			}
 			if resp.StatusCode != 204 {
 				p.l.Errorf("!240 status from url[%s]: [%d]%s", p.cfg.URL, resp.StatusCode, resp.Status)
+				p.monReqFailCount.Update(1)
+			} else {
+				p.monReqOkCount.Update(1)
 			}
 		}
 

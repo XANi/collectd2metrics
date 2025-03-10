@@ -71,7 +71,7 @@ func New(cfg Config, webFS fs.FS) (backend *WebBackend, err error) {
 	// monitoring endpoints
 	r.GET("/_status/health", gin.WrapF(mon.HandleHealthcheck))
 	r.HEAD("/_status/health", gin.WrapF(mon.HandleHealthcheck))
-	r.GET("/_status/metrics", gin.WrapF(mon.HandleMetrics))
+	r.GET("/_status/metrics", gin.WrapF(mon.HandlePrometheus))
 	defer mon.GlobalStatus.Update(mon.StatusOk, "ok")
 	// healthcheckHandler, haproxyStatus := mon.HandleHealthchecksHaproxy()
 	// r.GET("/_status/metrics", gin.WrapF(healthcheckHandler))

@@ -21,8 +21,14 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/efigence/go-libs v0.0.0-20171115061947-5b2936a0c2a1 h1:WJE5x8KYmcAW9U77NYb8WZBYvjjm9pjb7vS5TOePt7M=
 github.com/efigence/go-libs v0.0.0-20171115061947-5b2936a0c2a1/go.mod h1:+L8bBUFAIfgv+GWyTdOiHNUw9M1jh/7KxzmYXK2pUQA=
+github.com/efigence/go-libs v0.0.3 h1:lkvZAKB+bFWHYtvMm9nwbV8PBwBNQoRuoAbA1M8YPq0=
+github.com/efigence/go-libs v0.0.3/go.mod h1:jCH1kfxs363JgL8CbFKVnJwaxVuTwUhsYDQC84UdgwU=
 github.com/efigence/go-mon v1.3.1 h1:jLrmIlDGNvzdOA3eVxtHptJ7E7Q5fm5OX4v9+EYGc4E=
 github.com/efigence/go-mon v1.3.1/go.mod h1:NknU9Cj07W2hW1PUIfH5UARbF7PpFrob1wlYppJBTbI=
+github.com/efigence/go-mon v1.5.0 h1:NiSF7rg1/tphxuWoKvCjlXOvwGeTphNCrcdF89ZqL7c=
+github.com/efigence/go-mon v1.5.0/go.mod h1:tTrfHi+Ms0e2GCZU9NWUXPgctAWe3J2niUnyD7O+GnI=
+github.com/efigence/go-mon v1.5.1 h1:5Bz4ywzZi7KAS/aneJQkWjDALds8rTg4ugwqnuznnvQ=
+github.com/efigence/go-mon v1.5.1/go.mod h1:tTrfHi+Ms0e2GCZU9NWUXPgctAWe3J2niUnyD7O+GnI=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
 github.com/gin-contrib/zap v0.0.2 h1:VnIucI+kUsxgzmcrX0gMk19a2I12KirTxi+ufuT2xZk=

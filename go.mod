@@ -6,7 +6,7 @@ toolchain go1.23.5
 
 require (
 	github.com/XANi/go-yamlcfg v0.2.0
-	github.com/efigence/go-mon v1.3.1
+	github.com/efigence/go-mon v1.5.1
 	github.com/gin-contrib/zap v0.0.2
 	github.com/gin-gonic/gin v1.7.7
 	github.com/golang/protobuf v1.5.4
@@ -26,7 +26,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/efigence/go-libs v0.0.0-20171115061947-5b2936a0c2a1 // indirect
+	github.com/efigence/go-libs v0.0.3 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.13.0 // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
