@@ -17,6 +17,7 @@ import (
 )
 
 type Config struct {
+	InstanceName     string `yaml:"-"`
 	URL              string
 	Timeout          time.Duration      `yaml:"timeout"`
 	MaxBatchDuration time.Duration      `yaml:"max_batch_duration"`
@@ -48,9 +49,9 @@ func New(cfg Config) (*PromWriter, error) {
 	w := PromWriter{
 		cfg:             cfg,
 		l:               cfg.Logger,
-		monEvCount:      mon.GlobalRegistry.MustRegister("promwriter_events_total", mon.NewCounter()),
-		monReqOkCount:   mon.GlobalRegistry.MustRegister("promwriter_requests_total", mon.NewCounter(), map[string]string{"state": "ok"}),
-		monReqFailCount: mon.GlobalRegistry.MustRegister("promwriter_requests_total", mon.NewCounter(), map[string]string{"state": "fail"}),
+		monEvCount:      mon.GlobalRegistry.MustRegister("promwriter_events_total", mon.NewCounter(), map[string]string{"instance": cfg.InstanceName}),
+		monReqOkCount:   mon.GlobalRegistry.MustRegister("promwriter_requests_total", mon.NewCounter(), map[string]string{"state": "ok", "instance": cfg.InstanceName}),
+		monReqFailCount: mon.GlobalRegistry.MustRegister("promwriter_requests_total", mon.NewCounter(), map[string]string{"state": "fail", "instance": cfg.InstanceName}),
 		http: &http.Client{
 			Transport:     nil,
 			CheckRedirect: nil,
@@ -141,7 +142,8 @@ func (p *PromWriter) WriteCollectd(c datatypes.CollectdHTTP) {
 }
 
 func (p *PromWriter) writer() {
-
+	timeBackoff := time.Second
+	backoffTriggered := false
 	for {
 		events := []datatypes.PrometheusWrite{}
 		deadline := time.After(p.cfg.MaxBatchDuration)
@@ -208,7 +210,24 @@ func (p *PromWriter) writer() {
 			} else {
 				resp.Body.Close()
 			}
-			if resp.StatusCode != 204 {
+			if resp.StatusCode == 429 {
+				backoffTriggered = true
+				p.l.Infof("too many requests, sleeping for %s", timeBackoff)
+				if timeBackoff < time.Minute {
+					timeBackoff += (timeBackoff / 2)
+				}
+			} else {
+				if timeBackoff > time.Minute {
+					timeBackoff -= time.Second
+					if timeBackoff < time.Second {
+						timeBackoff = time.Second
+					}
+				}
+			}
+			if backoffTriggered == true {
+				time.Sleep(timeBackoff)
+			}
+			if resp.StatusCode != 204 && resp.StatusCode != 200 {
 				p.l.Errorf("!240 status from url[%s]: [%d]%s", p.cfg.URL, resp.StatusCode, resp.Status)
 				p.monReqFailCount.Update(1)
 			} else {

@@ -2,7 +2,6 @@ module github.com/XANi/collectd2metrics
 
 go 1.23.0
 
-toolchain go1.23.5
 
 require (
 	github.com/XANi/go-yamlcfg v0.2.0

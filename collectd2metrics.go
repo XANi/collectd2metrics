@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
 	"embed"
+	"fmt"
 	"github.com/XANi/collectd2metrics/config"
 	"github.com/XANi/collectd2metrics/datatypes"
 	"github.com/XANi/collectd2metrics/promwriter"
@@ -14,7 +16,9 @@ import (
 	"io/fs"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
+	"strconv"
 )
 
 var version string
@@ -114,17 +118,31 @@ func main() {
 				log.Infof(`detected directories "static" and "templates", using local static files instead of ones embedded in binary`)
 			}
 		}
-		cfg.PushgatewayWriter.Logger = log.Named("wr_prom")
-		cfg.PrometheusWriter.Logger = log.Named("wr_prom")
-		promWr, err := promwriter.New(cfg.PrometheusWriter)
-		if err != nil {
-			log.Fatalf("error starting Prometheus writer: %s", err)
+		writers := []datatypes.CollectdWriter{}
+		if len(cfg.PrometheusWriter) > 0 {
+			for i, w := range cfg.PrometheusWriter {
+				wrUrl, err := url.Parse(w.URL)
+				if err != nil {
+					log.Fatalf("failed to parse url %s:%s", w.URL, err)
+				}
+				sum := sha256.Sum256([]byte(wrUrl.String() + strconv.Itoa(i)))
+				instance := fmt.Sprintf("%s_%s_%x", wrUrl.Host, wrUrl.Port(), sum[0:4])
+				w.InstanceName = instance
+				w.Logger = log.Named(fmt.Sprintf("wr_prom[%d]", i))
+				log.Infof("starting promwriter instance %s", w.InstanceName)
+				promWr, err := promwriter.New(w)
+				if err != nil {
+					log.Fatalf("error starting Prometheus writer: %s", err)
+				}
+				writers = append(writers, promWr)
+			}
+		} else {
+			log.Panicf("no instance in config: %+v", cfg)
 		}
-
 		w, err := web.New(web.Config{
 			Logger:     log,
 			ListenAddr: c.String("listen-addr"),
-			Writers:    []datatypes.CollectdWriter{promWr},
+			Writers:    writers,
 		}, webDir)
 		if err != nil {
 			log.Panicf("error starting web listener: %s", err)
