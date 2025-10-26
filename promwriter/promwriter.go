@@ -9,6 +9,7 @@ import (
 	"github.com/klauspost/compress/snappy"
 	"github.com/prometheus/prometheus/prompb"
 	"go.uber.org/zap"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
@@ -34,9 +35,11 @@ type PromWriter struct {
 	monEvCount      mon.Metric
 	monReqOkCount   mon.Metric
 	monReqFailCount mon.Metric
+	monBatchSize    mon.Metric
 }
 
 func New(cfg Config) (*PromWriter, error) {
+	cfg.Logger.Infof("cfg: %+v", cfg)
 	if cfg.Timeout == 0 {
 		cfg.Timeout = time.Second * 10
 	}
@@ -52,13 +55,14 @@ func New(cfg Config) (*PromWriter, error) {
 		monEvCount:      mon.GlobalRegistry.MustRegister("promwriter_events_total", mon.NewCounter(), map[string]string{"instance": cfg.InstanceName}),
 		monReqOkCount:   mon.GlobalRegistry.MustRegister("promwriter_requests_total", mon.NewCounter(), map[string]string{"state": "ok", "instance": cfg.InstanceName}),
 		monReqFailCount: mon.GlobalRegistry.MustRegister("promwriter_requests_total", mon.NewCounter(), map[string]string{"state": "fail", "instance": cfg.InstanceName}),
+		monBatchSize:    mon.GlobalRegistry.MustRegister("promwrite_batch_size_avg", mon.NewEWMA(time.Minute), map[string]string{"instance": cfg.InstanceName}),
 		http: &http.Client{
 			Transport:     nil,
 			CheckRedirect: nil,
 			Jar:           nil,
 			Timeout:       cfg.Timeout,
 		},
-		writeChannel: make(chan datatypes.PrometheusWrite, cfg.MaxBatchLength*2),
+		writeChannel: make(chan datatypes.PrometheusWrite, cfg.MaxBatchLength*5),
 	}
 	url, err := url.Parse(cfg.URL)
 	if err != nil {
@@ -108,13 +112,13 @@ func (p *PromWriter) WriteCollectd(c datatypes.CollectdHTTP) {
 	if len(c.TypeInstance) > 0 {
 		prom.Labels["type_instance"] = c.TypeInstance
 	}
-	maxWriteDelay := time.After(time.Second * 10)
+	maxWriteDelay := time.After(time.Millisecond * 100)
 	if len(c.Values) == 1 {
 		prom.Value = c.Values[0]
 		select {
 		case p.writeChannel <- prom:
 		case <-maxWriteDelay:
-			p.l.Warnf("queue delay exceeded")
+			p.l.Warnf("queue delay exceeded, q size %d", len(p.writeChannel))
 		}
 	} else {
 		for idx, v := range c.Values {
@@ -207,9 +211,8 @@ func (p *PromWriter) writer() {
 				// TODO retry
 				p.monReqFailCount.Update(1)
 				continue
-			} else {
-				resp.Body.Close()
 			}
+
 			if resp.StatusCode == 429 {
 				backoffTriggered = true
 				p.l.Infof("too many requests, sleeping for %s", timeBackoff)
@@ -219,20 +222,25 @@ func (p *PromWriter) writer() {
 			} else {
 				if timeBackoff > time.Minute {
 					timeBackoff -= time.Second
-					if timeBackoff < time.Second {
-						timeBackoff = time.Second
-					}
+				} else if timeBackoff < time.Second {
+					timeBackoff = time.Second
+				} else {
+					timeBackoff -= time.Millisecond
 				}
+
 			}
 			if backoffTriggered == true {
 				time.Sleep(timeBackoff)
 			}
 			if resp.StatusCode != 204 && resp.StatusCode != 200 {
-				p.l.Errorf("!240 status from url[%s]: [%d]%s", p.cfg.URL, resp.StatusCode, resp.Status)
+				body, _ := io.ReadAll(resp.Body)
+				p.l.Errorf("!240 status: [%d]%s: %s", resp.StatusCode, resp.Status, string(body))
 				p.monReqFailCount.Update(1)
 			} else {
+				p.monBatchSize.Update(float64(len(events)))
 				p.monReqOkCount.Update(1)
 			}
+			resp.Body.Close()
 		}
 
 	}
